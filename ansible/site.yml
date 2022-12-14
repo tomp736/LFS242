@@ -3,3 +3,4 @@
 
 - import_playbook: playbooks/fluentd_linux.yml
 - import_playbook: playbooks/fluentd_docker.yml
+- import_playbook: playbooks/fluentd_kubernetes.yml

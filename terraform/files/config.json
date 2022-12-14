@@ -1,8 +1,8 @@
 {
     "networks": [
         {
-            "id": "default",
-            "name": "default",
+            "id": "net0",
+            "name": "net0",
             "ip_range": "10.98.0.0/16",
             "subnet_ranges": [
                 "10.98.0.0/24"
@@ -15,8 +15,8 @@
             "state": "disabled",
             "networks": [
                 { 
-                    "id" : "default",
-                    "ip" : null
+                    "id" : "net0",
+                    "ip" : ""
                 }
             ],
             "name": "labsys",
@@ -33,8 +33,8 @@
             "state": "disabled",
             "networks": [
                 { 
-                    "id" : "default",
-                    "ip" : null
+                    "id" : "net0",
+                    "ip" : ""
                 }
             ],
             "name": "labsys-docker",
@@ -51,8 +51,8 @@
             "state": "enabled",
             "networks": [
                 { 
-                    "id" : "default",
-                    "ip" : null
+                    "id" : "net0",
+                    "ip" : ""
                 }
             ],
             "name": "labsys-kubernetes",
