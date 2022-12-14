@@ -1,0 +1,31 @@
+{
+    "networks": [
+        {
+            "id": "default",
+            "name": "default",
+            "ip_range": "10.98.0.0/16",
+            "subnet_ranges": [
+                "10.98.0.0/24"
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "id": "labsys",
+            "networks": [
+                { 
+                    "id" : "default",
+                    "ip" : null
+                }
+            ],
+            "name": "labsys",
+            "location": "nbg1",
+            "image": "ubuntu-22.04",
+            "server_type": "cx21",
+            "nodetype": "generic",
+            "network_zone": "eu-central",
+            "ssh_user": "sysadmin",
+            "ssh_port": "2222"
+        }
+    ]
+}

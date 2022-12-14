@@ -1,0 +1,77 @@
+- name: Configure fluentd service
+  hosts: labsys
+  remote_user: sysadmin
+  become: yes
+
+  vars:
+    fluentd_package: fluentd
+
+  environment:
+    PATH: ~/.local/share/gem/ruby/3.0.0/bin:{{ ansible_env.PATH }}
+
+  tasks: 
+    - name: Set timedatectl set-ntp on
+      command: timedatectl set-ntp on
+
+    # assumes fluentd is run as root
+    - name: FluentD limits
+      lineinfile:
+        dest: /etc/security/limits.conf
+        line: "{{ item }} "
+        state: present
+      with_items:
+      - root soft nofile 65536
+      - root hard nofile 65536
+      register: fluentd_ulimits
+
+    - name: FluentD Sysctl
+      ansible.posix.sysctl:
+        name: '{{ item.key }}'
+        value: '{{ item.value }}'
+        sysctl_file: /etc/sysctl.d/90-fluentd.conf
+        sysctl_set: yes
+        state: present
+        reload: yes
+        ignoreerrors: yes
+      with_dict:
+        net.ipv4.tcp_tw_reuse: 1
+        net.ipv4.ip_local_port_range: 10240 65535
+      register: fluentd_sysctl
+
+    - name: Reboot to apply ulimits
+      ansible.builtin.reboot:
+      when: fluentd_ulimits.changed or fluentd_sysctl.changed
+
+    - name: Update Apt Cache
+      apt:
+        update_cache: yes
+        
+    - name: Install Fluentd
+      apt:
+        name: 
+          - ruby-full 
+          - ruby-dev
+          - libssl-dev
+          - libreadline-dev
+          - zlib1g-dev
+          - make
+          - gcc
+        state: present
+        
+    - name: Install Bundle Ruby Gem
+      community.general.gem:
+        name: bundle
+        state: latest  
+        
+    - name: Install Fluentd Ruby Gem
+      community.general.gem:
+        name: fluentd
+        state: latest
+
+    - name: Create initial config
+      shell: fluentd --setup ~/fluent
+      args:
+        executable: /bin/bash
+
+
+      
