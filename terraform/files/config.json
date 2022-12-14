@@ -12,6 +12,7 @@
     "nodes": [
         {
             "id": "labsys",
+            "state": "disabled",
             "networks": [
                 { 
                     "id" : "default",
@@ -29,6 +30,7 @@
         },
         {
             "id": "labsys-docker",
+            "state": "disabled",
             "networks": [
                 { 
                     "id" : "default",
@@ -36,6 +38,24 @@
                 }
             ],
             "name": "labsys-docker",
+            "location": "nbg1",
+            "image": "ubuntu-22.04",
+            "server_type": "cx21",
+            "nodetype": "generic",
+            "network_zone": "eu-central",
+            "ssh_user": "sysadmin",
+            "ssh_port": "2222"
+        },
+        {
+            "id": "labsys-kubernetes",
+            "state": "enabled",
+            "networks": [
+                { 
+                    "id" : "default",
+                    "ip" : null
+                }
+            ],
+            "name": "labsys-kubernetes",
             "location": "nbg1",
             "image": "ubuntu-22.04",
             "server_type": "cx21",
