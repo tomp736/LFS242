@@ -1,0 +1,43 @@
+- name: Configure fluentd service on docker
+  hosts: labsys-docker
+  remote_user: sysadmin
+  become: yes
+
+  tasks: 
+
+    - name: Install DockerCE
+      ansible.builtin.import_role:
+        name: labrats_work.modules_ansible.docker
+
+    - name: Creating a file with content
+      copy:
+        dest: /root/fluentd/docker.conf
+        content: |
+          <source>  
+            @type http  
+            port 24220  
+            bind 0.0.0.0
+          </source>
+          <source>  
+            @type forward  
+            port 24224  
+            bind 0.0.0.0
+          </source>
+          <match **>  
+            @type stdout
+          </match>
+
+    - name: Create FluentD Container
+      community.docker.docker_container:
+        name: fluentd
+        state: started
+        image: fluent/fluentd:latest
+        restart_policy: always
+        env:
+          FLUENTD_CONF: |
+            docker.conf
+        ports:
+          - '24220:24220'
+          - '24224:24224'
+        volumes:
+          - '/root/fluentd:/fluentd/etc'
