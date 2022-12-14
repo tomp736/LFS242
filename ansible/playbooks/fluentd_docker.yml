@@ -41,3 +41,13 @@
           - '24224:24224'
         volumes:
           - '/root/fluentd:/fluentd/etc'
+
+    - name: Create Nginx Container Using FluentD Log Driver
+      community.docker.docker_container:
+        name: nginx
+        state: started
+        image: nginx:latest
+        restart_policy: always
+        log_driver: fluentd
+        ports:
+          - '80:80'
