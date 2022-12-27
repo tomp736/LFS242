@@ -48,7 +48,7 @@
         },
         {
             "id": "labsys-kubernetes",
-            "state": "enabled",
+            "state": "disabled",
             "networks": [
                 { 
                     "id" : "net0",
@@ -56,6 +56,24 @@
                 }
             ],
             "name": "labsys-kubernetes",
+            "location": "nbg1",
+            "image": "ubuntu-22.04",
+            "server_type": "cx21",
+            "nodetype": "generic",
+            "network_zone": "eu-central",
+            "ssh_user": "sysadmin",
+            "ssh_port": "2222"
+        },
+        {
+            "id": "labsys-03",
+            "state": "enabled",
+            "networks": [
+                { 
+                    "id" : "net0",
+                    "ip" : ""
+                }
+            ],
+            "name": "labsys-03",
             "location": "nbg1",
             "image": "ubuntu-22.04",
             "server_type": "cx21",

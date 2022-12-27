@@ -1,59 +1,59 @@
-- name: Configure fluentd service on kubernetes
-  hosts: labsys-kubernetes
-  remote_user: sysadmin
-  become: yes
+# - name: Configure fluentd service on kubernetes
+#   hosts: labsys-kubernetes
+#   remote_user: sysadmin
+#   become: yes
 
-  tasks: 
+#   tasks: 
 
-    - name: Configure Kubernetes Dependencies
-      block:
-        - name: Install Containerd
-          ansible.builtin.import_role:
-            name: labrats_work.modules_ansible.containerd
-        - name: Install OpenISCI
-          ansible.builtin.import_role:
-            name: labrats_work.modules_ansible.open_isci
+#     - name: Configure Kubernetes Dependencies
+#       block:
+#         - name: Install Containerd
+#           ansible.builtin.import_role:
+#             name: labrats_work.modules_ansible.containerd
+#         - name: Install OpenISCI
+#           ansible.builtin.import_role:
+#             name: labrats_work.modules_ansible.open_isci
 
-    - name: Install Kubernetes Node Compenents
-      ansible.builtin.import_role:
-        name: labrats_work.modules_ansible.kubernetes_node
+#     - name: Install Kubernetes Node Compenents
+#       ansible.builtin.import_role:
+#         name: labrats_work.modules_ansible.kubernetes_node
 
-    - name: Configure Node as Master
-      ansible.builtin.import_role:
-        name: labrats_work.modules_ansible.kubernetes_master
-      vars:
-        kubernetes_iface: "net0"
+#     - name: Configure Node as Master
+#       ansible.builtin.import_role:
+#         name: labrats_work.modules_ansible.kubernetes_master
+#       vars:
+#         kubernetes_iface: "net0"
 
-    - name: Remove taints, this is a single node test cluster.
-      become: no
-      shell: kubectl taint nodes --all node-role.kubernetes.io/master- node-role.kubernetes.io/control-plane-
-      ignore_errors: true
+#     - name: Remove taints, this is a single node test cluster.
+#       become: no
+#       shell: kubectl taint nodes --all node-role.kubernetes.io/master- node-role.kubernetes.io/control-plane-
+#       ignore_errors: true
 
-    - name: Create directory if it does not exist
-      become: no
-      ansible.builtin.file:
-        path: fluentd
-        state: directory
-        mode: '0755'
+#     - name: Create directory if it does not exist
+#       become: no
+#       ansible.builtin.file:
+#         path: fluentd
+#         state: directory
+#         mode: '0755'
 
-    - name: Fluentd config file.
-      become: no
-      copy:
-        src: 'files/{{item}}'
-        dest: 'fluentd/{{item}}'
-      with_items:
-        - fluentd.conf
-        - daemonset.yaml
+#     - name: Fluentd config file.
+#       become: no
+#       copy:
+#         src: 'files/{{item}}'
+#         dest: 'fluentd/{{item}}'
+#       with_items:
+#         - fluentd.conf
+#         - daemonset.yaml
 
-    - name: Create configmap for fluentd.
-      become: no
-      shell: kubectl create configmap fluentd-config --from-file fluentd/fluentd.conf --dry-run=client -o yaml > fluentd/configmap.yaml
+#     - name: Create configmap for fluentd.
+#       become: no
+#       shell: kubectl create configmap fluentd-config --from-file fluentd/fluentd.conf --dry-run=client -o yaml > fluentd/configmap.yaml
 
-    - name: Apply configmap for fluentd.
-      become: no
-      shell: kubectl apply -f fluentd/configmap.yaml
+#     - name: Apply configmap for fluentd.
+#       become: no
+#       shell: kubectl apply -f fluentd/configmap.yaml
 
-    - name: Apply daemonset for fluentd.
-      become: no
-      shell: kubectl apply -f fluentd/daemonset.yaml
+#     - name: Apply daemonset for fluentd.
+#       become: no
+#       shell: kubectl apply -f fluentd/daemonset.yaml
 

@@ -1,0 +1,279 @@
+- name: Configure fluentd service
+  hosts: labsys-03
+  remote_user: sysadmin
+  become: yes
+
+  vars:
+    fluentd_package: fluentd
+
+  environment:
+    PATH: ~/.local/share/gem/ruby/3.0.0/bin:{{ ansible_env.PATH }}
+
+  tasks: 
+    - name: Set timedatectl set-ntp on
+      command: timedatectl set-ntp on
+
+    # assumes fluentd is run as root
+    - name: FluentD limits
+      lineinfile:
+        dest: /etc/security/limits.conf
+        line: "{{ item }} "
+        state: present
+      with_items:
+      - root soft nofile 65536
+      - root hard nofile 65536
+      register: fluentd_ulimits
+
+    - name: FluentD Sysctl
+      ansible.posix.sysctl:
+        name: '{{ item.key }}'
+        value: '{{ item.value }}'
+        sysctl_file: /etc/sysctl.d/90-fluentd.conf
+        sysctl_set: yes
+        state: present
+        reload: yes
+        ignoreerrors: yes
+      with_dict:
+        net.ipv4.tcp_tw_reuse: 1
+        net.ipv4.ip_local_port_range: 10240 65535
+      register: fluentd_sysctl
+
+    - name: Reboot to apply ulimits
+      ansible.builtin.reboot:
+      when: fluentd_ulimits.changed or fluentd_sysctl.changed
+
+    - name: Update Apt Cache
+      apt:
+        update_cache: yes
+        
+    - name: Install Fluentd
+      apt:
+        name: 
+          - ruby-full 
+          - ruby-dev
+          - libssl-dev
+          - libreadline-dev
+          - zlib1g-dev
+          - make
+          - gcc
+        state: present
+        
+    - name: Install Bundle Ruby Gem
+      community.general.gem:
+        name: bundle
+        state: latest  
+        
+    - name: Install Fluentd Ruby Gem
+      community.general.gem:
+        name: fluentd
+        state: latest
+
+    - name: Create initial config
+      shell: fluentd --setup ~/fluent
+      args:
+        executable: /bin/bash
+
+    - name: Create initial config
+      shell: fluent-gem install fluent-plugin-mongo -N -v 1.6.0
+      args:
+        executable: /bin/bash
+
+    - name: Install DockerCE
+      ansible.builtin.import_role:
+        name: labrats_work.modules_ansible.docker
+
+    - name: Mongo DB Container
+      block:
+
+      - name: Create mongo group
+        ansible.builtin.group:
+          name: mongo
+          gid: 2001
+          state: present
+
+      - name: Create mongo user
+        user:
+          name: mongo
+          uid: 2001
+          group: mongo
+          shell: /sbin/nologin
+
+      - name: Create MongoDB Container
+        community.docker.docker_container:
+          name: mongo
+          state: absent
+          image: mongo:latest
+
+      - name: Create hostpath for mongo data
+        become: yes
+        ansible.builtin.file:
+          path: /data/mongo/db
+          state: directory
+          owner: mongo
+          group: mongo
+          mode: '0755'
+
+      - name: Get Mongo IP
+        ansible.builtin.shell: rm -rf /data/mongo/db/*
+
+      - name: Create empty initconfig file.
+        ansible.builtin.copy:
+          content: ""
+          dest: /data/mongo/mongo-init.js
+          owner: mongo
+          group: mongo
+          mode: '0755'
+
+      - name: Create initconfig sections.
+        ansible.builtin.blockinfile:
+          path: /data/mongo/mongo-init.js
+          marker: "// {mark} ANSIBLE MANAGED BLOCK"
+          block: |
+            db.auth('root', 'c4lvin');
+            db = new Mongo().getDB("fluentd");
+            db.createCollection("lab3");
+            db.createUser({
+              user: "fluent",
+              pwd: "c4lvin",
+              roles: [{ role: "readWrite", db: "fluentd" }]
+            });
+
+            db = new Mongo().getDB("nginx");
+            db.createCollection("access");
+            db.createCollection("error");
+            db.createUser({
+              user: "nginx",
+              pwd: "c4lvin",
+              roles: [{ role: "readWrite", db: "nginx" }]
+            });
+
+      - name: Create MongoDB Container
+        community.docker.docker_container:
+          name: mongo
+          state: started
+          image: mongo:latest
+          restart_policy: always
+          user: 2001:2001
+          env:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: c4lvin
+            MONGO_INITDB_DATABASE: admin
+          volumes:
+            - '/data/mongo/db:/data/db'
+            - '/data/mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro'
+
+      - name: Register Mongo IP
+        ansible.builtin.shell: docker container inspect -f {% raw %}'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'{% endraw %} mongo
+        register: mongo_container_ip
+
+      - name: Create Fluent Directive for testing mongo connection using tail on tmp file.
+        ansible.builtin.blockinfile:
+          path: /root/fluent/fluent.conf
+          marker: "# {mark} ANSIBLE MANAGED BLOCK"
+          block: |
+            <source>
+                @type tail
+                path /tmp/mongotrack
+                pos_file /tmp/mongotrack.pos
+                <parse>
+                    @type none
+                </parse>
+                tag mongo.lab3
+            </source>
+
+            <match mongo.**>
+                @type mongo
+                host {{ mongo_container_ip.stdout }}
+                port 27017
+                database fluentd
+                collection lab3
+
+                user fluent
+                password c4lvin
+
+                <inject>
+                    time_key time
+                </inject>
+            </match>
+
+    - name: Nginx Container
+      block:
+
+      - name: Delete Nginx Container
+        community.docker.docker_container:
+          name: nginx
+          state: absent
+          image: nginx:latest
+
+      - name: Create hostpath for nginx logs
+        become: yes
+        ansible.builtin.file:
+          path: /data/nginx
+          state: directory
+          owner: root
+          group: root
+          mode: '0755'
+
+      - name: Create Nginx Container
+        community.docker.docker_container:
+          name: nginx
+          state: started
+          image: nginx:latest
+          restart_policy: always
+          volumes:
+            - '/data/nginx:/var/log/nginx'
+
+      - name: Create Fluent Directives for Processing Nginx Logs
+        ansible.builtin.blockinfile:
+          path: /root/fluent/fluent.conf
+          marker: "# {mark} ANSIBLE MANAGED BLOCK"
+          block: |
+            <source>
+                @type tail
+                <parse>
+                  @type nginx
+                </parse>
+                path /data/nginx/access.log
+                pos_file /data/nginx/access.pos
+                tag mongo.nginx.access
+            </source>
+
+            <source>
+                @type tail
+                path /data/nginx/error.log
+                pos_file /tmp/nginx/error.pos
+                tag mongo.nginx.error
+                <parse>
+                    @type multiline
+                    format_firstline /^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} \[\w+\] (?<pid>\d+).(?<tid>\d+): /
+                    format1 /^(?<time>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?<log_level>\w+)\] (?<pid>\d+).(?<tid>\d+): (?<message>.*)/
+                </parse>
+            </source>
+
+            <match mongo.nginx.access.**>
+                @type mongo
+                host {{ mongo_container_ip.stdout }}
+                port 27017
+                database nginx
+                user nginx
+                password c4lvin              
+                collection access
+
+                <inject>
+                    stime_key time
+                </inject>
+            </match>
+
+            <match mongo.nginx.error.**>
+                @type mongo
+                host {{ mongo_container_ip.stdout }}
+                port 27017
+                database nginx
+                user nginx
+                password c4lvin
+                collection error
+                
+                <inject>
+                    time_key time
+                </inject>
+            </match>
