@@ -48,7 +48,7 @@
         },
         {
             "id": "labsys-kubernetes",
-            "state": "disabled",
+            "state": "enabled",
             "networks": [
                 { 
                     "id" : "net0",
