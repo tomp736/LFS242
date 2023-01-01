@@ -9,6 +9,12 @@
       ansible.builtin.import_role:
         name: labrats_work.modules_ansible.docker
 
+    - name: Create Directory
+      ansible.builtin.file:
+        path: /root/fluentd
+        state: directory
+        mode: 0750
+
     - name: Creating a file with content
       copy:
         dest: /root/fluentd/docker.conf
