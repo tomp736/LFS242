@@ -30,7 +30,7 @@
         },
         {
             "id": "labsys-docker",
-            "state": "disabled",
+            "state": "enabled",
             "networks": [
                 { 
                     "id" : "net0",
